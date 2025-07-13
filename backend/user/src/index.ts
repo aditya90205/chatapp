@@ -2,11 +2,15 @@ import express from "express";
 import dotenv from "dotenv";
 import connectDB from "./config/db.js";
 import { createClient } from "redis";
+import userRoutes from "./routes/user.js";
+import { connectRabbitMQ } from "./config/rabbitmq.js";
 
 // dotenv.config({ path: "./.env" });
 dotenv.config();
 
 connectDB();
+
+connectRabbitMQ()
 
 export const redisClient = createClient({
   url: process.env.REDIS_URI,
@@ -20,6 +24,10 @@ redisClient
   });
 
 const app = express();
+
+app.use(express.json());
+app.use("/api/v1/user", userRoutes);
+
 const PORT = process.env.PORT || 3000;
 app.get("/", (req, res) => {
   res.send("User Service is running");
