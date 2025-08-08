@@ -30,6 +30,7 @@ export const publishToQueue = async (queueName: string, message: any) => {
       durable: true,
     });
 
+    // Buffer the message and send it to the queue because RabbitMQ expects a Buffer
     channel.sendToQueue(queueName, Buffer.from(JSON.stringify(message)), {
       persistent: true,
     });
