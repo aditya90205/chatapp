@@ -2,6 +2,7 @@ import { generateToken } from "../config/generateToken.js";
 import { publishToQueue } from "../config/rabbitmq.js";
 import TryCatch from "../config/TryCatch.js";
 import { redisClient } from "../index.js";
+import { AuthenticateRequest } from "../middleware/isAuth.js";
 import { User } from "../model/User.js";
 
 export const loginUser = TryCatch(async (req, res) => {
@@ -76,8 +77,84 @@ export const verifyUser = TryCatch(async (req, res) => {
   res.json({
     message: "OTP verified successfully.",
     token,
-    user
+    user,
   });
 });
 
+export const myProfile = TryCatch(async (req: AuthenticateRequest, res) => {
+  const user = req.user;
+  if (!user) {
+    res.status(401).json({
+      message: "Unauthorized access.",
+    });
+    return;
+  }
 
+  res.json({
+    message: "User profile retrieved successfully.",
+    user,
+  });
+});
+
+export const updateProfileName = TryCatch(
+  async (req: AuthenticateRequest, res) => {
+    const user = req.user;
+    const { name } = req.body;
+
+    if (!user) {
+      res.status(401).json({
+        message: "Unauthorized access.",
+      });
+      return;
+    }
+
+    if (!name) {
+      res.status(400).json({
+        message: "Name is required.",
+      });
+      return;
+    }
+
+    user.name = name;
+    await user.save();
+
+    const token = generateToken(user);
+
+    res.json({
+      message: "Profile updated successfully.",
+      user,
+      token,
+    });
+  }
+);
+
+export const getAllUsers = TryCatch(async (req, res) => {
+  const users = await User.find();
+  res.json({
+    message: "All users retrieved successfully.",
+    users,
+  });
+});
+
+export const getAUser = TryCatch(async (req, res) => {
+  const { id } = req.params;
+  if (!id) {
+    res.status(400).json({
+      message: "User ID is required.",
+    });
+    return;
+  }
+
+  const user = await User.findById(id);
+  if (!user) {
+    res.status(404).json({
+      message: "User not found.",
+    });
+    return;
+  }
+
+  res.json({
+    message: "User retrieved successfully.",
+    user,
+  });
+});
