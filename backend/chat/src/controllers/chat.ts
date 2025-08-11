@@ -1,3 +1,4 @@
+import axios from "axios";
 import TryCatch from "../config/TryCatch.js";
 import { AuthRequest } from "../middlewares/isAuth.js";
 import Chat from "../models/Chat.js";
@@ -141,3 +142,10 @@ export const getAllChats = TryCatch(async (req: AuthRequest, res) => {
   //   ]
   // }
 });
+
+export const sendMessage = TryCatch(
+  async (req: AuthRequest, res) => {
+    
+  }
+);
+    
