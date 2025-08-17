@@ -3,6 +3,7 @@ import TryCatch from "../config/TryCatch.js";
 import { AuthRequest } from "../middlewares/isAuth.js";
 import Chat from "../models/Chat.js";
 import Messages from "../models/Messages.js";
+import { send } from "process";
 
 export const createNewChat = TryCatch(async (req: AuthRequest, res) => {
   const userId = req.user?._id;
@@ -143,9 +144,164 @@ export const getAllChats = TryCatch(async (req: AuthRequest, res) => {
   // }
 });
 
-export const sendMessage = TryCatch(
-  async (req: AuthRequest, res) => {
-    
+export const sendMessage = TryCatch(async (req: AuthRequest, res) => {
+  const senderId = req.user?._id;
+  const { chatId, text } = req.body;
+
+  if (!senderId) {
+    return res.status(401).json({ message: "Unauthorized" });
   }
-);
+  if (!chatId) {
+    return res.status(400).json({ message: "Chat ID is required." });
+  }
+
+  const imageFile = req.file;
+
+  if (!text && !imageFile) {
+    return res
+      .status(400)
+      .json({ message: "Message text or image is required." });
+  }
+
+  const chat = await Chat.findById(chatId);
+  if (!chat) {
+    return res.status(404).json({ message: "Chat not found." });
+  }
+
+  const isUserInChat = chat.users.some(
+    (userId) => userId.toString() === senderId.toString()
+  );
+
+  if (!isUserInChat) {
+    return res
+      .status(403)
+      .json({ message: "User is not a participant in this chat." });
+  }
+
+  const otherUserId = chat.users.find(
+    (id) => id.toString() !== senderId.toString()
+  );
+
+  if (!otherUserId) {
+    return res.status(404).json({ message: "Other user not found." });
+  }
+
+  // Socket Setup
+
+  let messageData: any = {
+    chatId,
+    sender: senderId,
+    seen: false,
+    seenAt: undefined,
+  };
+
+  if (imageFile) {
+    messageData.image = {
+      url: imageFile.path,
+      publicId: imageFile.filename,
+    };
+    messageData.text = text || "";
+    messageData.messageType = "image";
+  } else {
+    messageData.text = text;
+    messageData.messageType = "text";
+  }
+
+  const savedMessage = await Messages.create(messageData);
+
+  const latestMessage = imageFile ? "📷 Image" : text;
+
+  await Chat.findByIdAndUpdate(
+    chatId,
+    {
+      latestMessage: {
+        text: latestMessage,
+        sender: senderId,
+      },
+      updatedAt: new Date(),
+    },
+    { new: true }
+  );
+
+  // Emit the message to the other user via WebSocket
+  // socket.to(otherUserId).emit("message", savedMessage);
+
+  res.status(201).json({ message: savedMessage, sender: senderId });
+});
+
+export const getMessagesByChat = TryCatch(async (req: AuthRequest, res) => {
+  const userId = req.user?._id;
+
+  const { chatId } = req.params;
+
+  if (!userId) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+  if (!chatId) {
+    return res.status(400).json({ message: "Chat ID is required." });
+  }
+
+  const chat = await Chat.findById(chatId);
+
+  if (!chat) {
+    return res.status(404).json({ message: "Chat not found." });
+  }
+
+  const isUserInChat = chat.users.some(
+    (userId) => userId.toString() === userId.toString()
+  );
+
+  if (!isUserInChat) {
+    return res
+      .status(403)
+      .json({ message: "User is not a participant in this chat." });
+  }
+
+  const messagesToMarkAsSeen = await Messages.find({
+    chatId,
+    sender: { $ne: userId },
+    seen: false,
+  });
+
+  await Messages.updateMany(
+    {
+      chatId,
+      sender: { $ne: userId },
+      seen: false,
+    },
+    {
+      $set: { seen: true, seenAt: new Date() },
+    }
+  ); 
+
+  const messages = await Messages.find({ chatId }).sort({ createdAt: 1 });
+
+  const otherUserId = chat.users.find((id) => id.toString() !== userId.toString());
+
+  if (!otherUserId) {
+    return res.status(404).json({ message: "Other user not found." });
+  }
+
+  try {
+    const { data } = await axios.get(`${process.env.USER_SERVICE}/api/v1/user/${otherUserId}`);
     
+    //TODO: Socket Work
+
+    res.json({
+      messages,
+      user: data
+    })
+  } catch (error) {
+    console.log(`Error fetching user data for chat ${chatId}:`, error);
+
+    res.json({
+      _id: otherUserId,
+      name: "Unknown user"
+    })
+  }
+
+  res.json({
+    message: "Messages retrieved successfully.",
+    messages,
+  });
+})
