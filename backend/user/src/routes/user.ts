@@ -18,4 +18,4 @@ router.get("/me", isAuth, myProfile);
 router.get("/all", isAuth, getAllUsers);
 router.get("/:id", getAUser);
 
-export default router;
+export default router; 
