@@ -1,6 +1,6 @@
 "use client";
 
-import {
+import React, {
   createContext,
   ReactNode,
   useContext,
@@ -44,6 +44,12 @@ interface AppContextType {
   isAuth: boolean;
   setUser: React.Dispatch<React.SetStateAction<User | null>>;
   setIsAuth: React.Dispatch<React.SetStateAction<boolean>>;
+  logoutUser: () => Promise<void>;
+  fetchUsers: () => Promise<void>;
+  fetchChats: () => Promise<void>;
+  chats: Chats[] | null;
+  users: User[] | null;
+  setChats: React.Dispatch<React.SetStateAction<Chats[] | null>>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -66,7 +72,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
           Authorization: `Bearer ${token}`,
         },
       });
-      setUser(data);
+      setUser(data.user);
       setIsAuth(true);
     } catch (error) {
       console.error("Error fetching user:", error);
@@ -82,8 +88,42 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     toast.success("Logged out successfully");
   }
 
+  const [chats, setChats] = useState<Chats[] | null>(null);
+  async function fetchChats() {
+    const token = Cookies.get("token");
+    try {
+      const { data } = await axios.get(`${chat_service}/all`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      setChats(data.chats);
+    } catch (error) {
+      console.log("Fetch Chat Error:", error);
+    }
+  }
+
+  const [users, setUsers] = useState<User[] | null>(null);
+
+  async function fetchUsers() {
+    const token = Cookies.get("token");
+    try {
+      const { data } = await axios.get(`${user_service}/all`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      // console.log("Fetched Users:", data.users);
+      setUsers(data.users);
+    } catch (error) {
+      console.log("Fetch User error", error);
+    }
+  }
+
   useEffect(() => {
     fetchUser();
+    fetchChats();
+    fetchUsers();
   }, []);
 
   const value = {
@@ -92,6 +132,12 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     isAuth,
     setUser,
     setIsAuth,
+    logoutUser,
+    fetchChats,
+    fetchUsers,
+    chats,
+    users,
+    setChats,
   };
 
   return (
