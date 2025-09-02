@@ -23,6 +23,7 @@ interface ChatSidebarProps {
   selectedUser: string | null;
   setSelectedUser: (userId: string | null) => void;
   handleLogout: () => void;
+  createChat: (user: User) => void;
 }
 
 const Sidebar = ({
@@ -36,11 +37,13 @@ const Sidebar = ({
   selectedUser,
   setSelectedUser,
   handleLogout,
+  createChat,
 }: ChatSidebarProps) => {
   // console.log("Users", users);
   // console.log("Logged in Users", loggedInUser);
 
   console.log("Chats", chats);
+
 
   const [searchQuery, setSearchQuery] = useState("");
   return (
@@ -115,6 +118,7 @@ const Sidebar = ({
                   <button
                     key={user._id}
                     className="w-full text-left p-4 border border-gray-700 hover:border-gray-600 rounded-lg hover:bg-gray-800 transition-colors"
+                    onClick={() => createChat(user)}
                   >
                     <div className="flex items-center gap-3">
                       <div className="relative">

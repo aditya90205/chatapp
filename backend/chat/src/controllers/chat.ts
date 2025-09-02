@@ -22,7 +22,6 @@ export const createNewChat = TryCatch(async (req: AuthRequest, res) => {
 
   if (existingChat) {
     return res
-      .status(400)
       .json({ message: "Chat already exists.", chatId: existingChat._id });
   }
 
@@ -300,8 +299,8 @@ export const getMessagesByChat = TryCatch(async (req: AuthRequest, res) => {
     })
   }
 
-  res.json({
-    message: "Messages retrieved successfully.",
-    messages,
-  });
+  // res.json({
+  //   message: "Messages retrieved successfully.",
+  //   messages,
+  // });
 })
