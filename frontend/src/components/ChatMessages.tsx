@@ -31,7 +31,7 @@ const ChatMessages = ({
   }, [messages]);
 
   useEffect(() => {
-    if (bottomRef.current) {
+    if (bottomRef.current) { // IT ADDED BY MY SELF
       bottomRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [selectedUser, uniqueMessages]);

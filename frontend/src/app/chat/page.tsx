@@ -10,6 +10,7 @@ import toast from "react-hot-toast";
 import axios from "axios";
 import ChatHeader from "@/components/ChatHeader";
 import ChatMessages from "@/components/ChatMessages";
+import MessageInput from "@/components/MessageInput";
 
 export interface Message {
   _id: string;
@@ -103,6 +104,60 @@ const ChatApp = () => {
     }
   }
 
+  const handleMessageSend = async (
+    e: React.FormEvent<HTMLFormElement>,
+    imageFile?: File | null
+  ) => {
+    e.preventDefault();
+
+    if (!message.trim() && !imageFile && !selectedUser) return;
+
+    // TODO: Socket Work
+
+    const token = Cookies.get("token");
+    try {
+      const formData = new FormData();
+      formData.append("chatId", selectedUser!);
+      // formData.append("sender", loggedInUser!._id);
+      if (message.trim()) formData.append("text", message);
+      if (imageFile) formData.append("image", imageFile);
+      // formData.append("messageType", imageFile ? "image" : "text");
+
+      const { data } = await axios.post(`${chat_service}/message`, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      setMessages((prev) => {
+        const currentMessages = prev || [];
+        const messageExists = currentMessages.some(
+          (msg) => msg._id === data.message._id
+        );
+        if (!messageExists) {
+          return [...currentMessages, data.message];
+        }
+        return currentMessages;
+      });
+
+      // setMessages((prev) => [...prev, data.message]);
+      setMessage("");
+
+      const displayText = imageFile ? "📷 Image" : message;
+    } catch (error) {
+      toast.error("Error sending message", error.response?.data?.message);
+    }
+  };
+
+  const handleTyping = (value: string) => {
+    setMessage(value);
+
+    if (!selectedUser) return;
+
+    // TODO: Socket Setup
+  };
+
   useEffect(() => {
     if (selectedUser) {
       fetchChat();
@@ -137,6 +192,13 @@ const ChatApp = () => {
           selectedUser={selectedUser}
           messages={messages}
           loggedInUser={loggedInUser}
+        />
+
+        <MessageInput
+          selectedUser={selectedUser}
+          message={message}
+          setMessage={handleTyping}
+          handleMessageSend={handleMessageSend}
         />
       </div>
     </div>

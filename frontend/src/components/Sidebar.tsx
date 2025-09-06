@@ -44,7 +44,6 @@ const Sidebar = ({
 
   console.log("Chats", chats);
 
-
   const [searchQuery, setSearchQuery] = useState("");
   return (
     <aside
@@ -172,7 +171,7 @@ const Sidebar = ({
                         <span
                           className={`font-semibold truncate ${
                             isSelected ? "text-white" : "text-gray-200"
-                          }`}
+                           }`}
                         >
                           {chat.user.user.name}
                         </span>
