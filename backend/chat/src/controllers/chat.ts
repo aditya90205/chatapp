@@ -3,7 +3,7 @@ import TryCatch from "../config/TryCatch.js";
 import { AuthRequest } from "../middlewares/isAuth.js";
 import Chat from "../models/Chat.js";
 import Messages from "../models/Messages.js";
-import { send } from "process";
+import { getReceiverSocketId, io } from "../config/socket.js";
 
 export const createNewChat = TryCatch(async (req: AuthRequest, res) => {
   const userId = req.user?._id;
@@ -222,8 +222,17 @@ export const sendMessage = TryCatch(async (req: AuthRequest, res) => {
     { new: true }
   );
 
-  // Emit the message to the other user via WebSocket
-  // socket.to(otherUserId).emit("message", savedMessage);
+  // Emit the message to the chat room and to the other user
+  io.to(chatId).emit("message_received", { message: savedMessage });
+  
+  // Also send to other user's personal room if they're online
+  const receiverSocketId = getReceiverSocketId(otherUserId.toString());
+  if (receiverSocketId) {
+    io.to(receiverSocketId).emit("new_message_notification", { 
+      message: savedMessage,
+      chatId 
+    });
+  }
 
   res.status(201).json({ message: savedMessage, sender: senderId });
 });

@@ -38,6 +38,9 @@ const ChatHeader = ({ user, setSidebarOpen, isTyping }: ChatHeaderProps) => {
                 <div className="flex items-center gap-3 mb-1">
                   <h2 className="text-2xl font-bold text-white truncate">{user.name}</h2>
                 </div>
+                {isTyping && (
+                  <p className="text-sm text-blue-400">typing...</p>
+                )}
               </div>
               {/* to show typing status */}
             </>

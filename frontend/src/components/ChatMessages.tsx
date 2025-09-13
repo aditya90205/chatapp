@@ -1,4 +1,4 @@
-import { Message } from "@/app/chat/page";
+import { Message } from "@/types";
 import { User } from "@/context/AppContext";
 import { Check, CheckCheck } from "lucide-react";
 import moment from "moment";
