@@ -84,7 +84,7 @@ export const SocketProvider = ({ children }: ProviderProps) => {
       console.log("Cleaning up socket connection");
       newSocket.disconnect();
     };
-  }, [user?._id, socket]);
+  }, [user?._id]);
 
   const joinChat = useCallback((chatId: string) => {
     if (socket && chatId) {

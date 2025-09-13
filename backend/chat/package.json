@@ -23,7 +23,7 @@
     "mongoose": "^8.17.1",
     "multer": "^2.0.2",
     "multer-storage-cloudinary": "^4.0.0",
-    "soket.io": "^0.0.1-security"
+    "socket.io": "^4.8.1"
   },
   "devDependencies": {
     "@types/axios": "^0.9.36",
