@@ -3,29 +3,16 @@
 import Loading from "@/components/Loading";
 import Sidebar from "@/components/Sidebar";
 import { chat_service, useAppContext, User } from "@/context/AppContext";
+import { useSocketContext } from "@/context/SocketContext";
+import { Message } from "@/types";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Cookies from "js-cookie";
 import toast from "react-hot-toast";
 import axios from "axios";
 import ChatHeader from "@/components/ChatHeader";
 import ChatMessages from "@/components/ChatMessages";
 import MessageInput from "@/components/MessageInput";
-
-export interface Message {
-  _id: string;
-  chatId: string;
-  sender: string;
-  text?: string;
-  image?: {
-    url: string;
-    publicId: string;
-  };
-  messageType: "text" | "image";
-  seen: boolean;
-  seenAt?: string;
-  createdAt: string;
-}
 
 const ChatApp = () => {
   const {
@@ -36,8 +23,15 @@ const ChatApp = () => {
     user: loggedInUser,
     users,
     fetchChats,
-    setChats,
   } = useAppContext();
+
+  const {
+    socket,
+    joinChat,
+    leaveChat,
+    sendMessage: sendSocketMessage,
+    sendTyping,
+  } = useSocketContext();
 
   const [selectedUser, setSelectedUser] = useState<null | string>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -58,11 +52,82 @@ const ChatApp = () => {
     }
   }, [isAuth, router, loading]);
 
+  // Socket event listeners
+  useEffect(() => {
+    if (!socket) return;
+
+    // Listen for new messages
+    const handleMessageReceived = (data: { message: Message }) => {
+      console.log("Message received via socket:", data);
+      setMessages((prev) => {
+        const currentMessages = prev || [];
+        const messageExists = currentMessages.some(
+          (msg) => msg._id === data.message._id
+        );
+        if (!messageExists) {
+          return [...currentMessages, data.message];
+        }
+        return currentMessages;
+      });
+    };
+
+    // Listen for typing indicators
+    const handleUserTyping = (data: { isTyping: boolean; userId: string }) => {
+      console.log("User typing event:", data);
+      // Only show typing indicator if it's not the current user
+      if (data.userId !== loggedInUser?._id) {
+        setIsTyping(data.isTyping);
+        
+        // Clear typing indicator after a few seconds
+        if (data.isTyping) {
+          if (typingTimeout) clearTimeout(typingTimeout);
+          const timeout = setTimeout(() => setIsTyping(false), 3000);
+          setTypingTimeout(timeout);
+        }
+      }
+    };
+
+    // Listen for message seen updates
+    const handleMessageSeen = (data: { messageId: string; seenByUserId: string }) => {
+      console.log("Message seen update:", data);
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg._id === data.messageId
+            ? { ...msg, seen: true, seenAt: new Date().toISOString() }
+            : msg
+        )
+      );
+    };
+
+    socket.on("message_received", handleMessageReceived);
+    socket.on("user_typing", handleUserTyping);
+    socket.on("message_seen_update", handleMessageSeen);
+
+    return () => {
+      socket.off("message_received", handleMessageReceived);
+      socket.off("user_typing", handleUserTyping);
+      socket.off("message_seen_update", handleMessageSeen);
+    };
+  }, [socket, loggedInUser?._id, typingTimeout]);
+
+  // Handle joining/leaving chat rooms when selectedUser changes
+  useEffect(() => {
+    if (selectedUser) {
+      joinChat(selectedUser);
+      
+      return () => {
+        leaveChat(selectedUser);
+      };
+    }
+  }, [selectedUser, joinChat, leaveChat]);
+
   const handleLogout = () => {
     logoutUser();
   };
 
-  async function fetchChat() {
+  const fetchChat = useCallback(async () => {
+    if (!selectedUser) return;
+    
     try {
       const token = Cookies.get("token");
       const { data } = await axios.get(
@@ -76,10 +141,11 @@ const ChatApp = () => {
       setMessages(data.messages);
       setUser(data.user.user);
       await fetchChats();
-    } catch (error) {
-      toast.error("Error fetching chats", error);
+    } catch (error: unknown) {
+      toast.error("Error fetching chats");
+      console.error("Fetch chat error:", error);
     }
-  }
+  }, [selectedUser, fetchChats]);
 
   async function createChat(user: User) {
     try {
@@ -99,8 +165,10 @@ const ChatApp = () => {
       setSelectedUser(data.chatId);
       setShowAllUser(false);
       await fetchChats();
-    } catch (error: any) {
-      toast.error("Error creating chat", error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      toast.error("Error creating chat: " + errorMessage);
+      console.error("Create chat error:", error);
     }
   }
 
@@ -112,16 +180,12 @@ const ChatApp = () => {
 
     if (!message.trim() && !imageFile && !selectedUser) return;
 
-    // TODO: Socket Work
-
     const token = Cookies.get("token");
     try {
       const formData = new FormData();
       formData.append("chatId", selectedUser!);
-      // formData.append("sender", loggedInUser!._id);
       if (message.trim()) formData.append("text", message);
       if (imageFile) formData.append("image", imageFile);
-      // formData.append("messageType", imageFile ? "image" : "text");
 
       const { data } = await axios.post(`${chat_service}/message`, formData, {
         headers: {
@@ -130,6 +194,7 @@ const ChatApp = () => {
         },
       });
 
+      // Add message to local state immediately for sender
       setMessages((prev) => {
         const currentMessages = prev || [];
         const messageExists = currentMessages.some(
@@ -141,28 +206,44 @@ const ChatApp = () => {
         return currentMessages;
       });
 
-      // setMessages((prev) => [...prev, data.message]);
-      setMessage("");
+      // Send message via socket for real-time delivery to other users
+      if (selectedUser && data.message) {
+        sendSocketMessage(selectedUser, data.message);
+      }
 
-      const displayText = imageFile ? "📷 Image" : message;
-    } catch (error) {
-      toast.error("Error sending message", error.response?.data?.message);
+      setMessage("");
+      
+      // Update chats list to reflect latest message
+      await fetchChats();
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      toast.error("Error sending message: " + errorMessage);
+      console.error("Send message error:", error);
     }
   };
 
   const handleTyping = (value: string) => {
     setMessage(value);
 
-    if (!selectedUser) return;
+    if (!selectedUser || !loggedInUser?._id) return;
 
-    // TODO: Socket Setup
+    // Send typing indicator via socket
+    const isTyping = value.trim().length > 0;
+    sendTyping(selectedUser, isTyping, loggedInUser._id);
+
+    // Clear typing indicator after user stops typing
+    if (typingTimeout) clearTimeout(typingTimeout);
+    const timeout = setTimeout(() => {
+      sendTyping(selectedUser, false, loggedInUser._id);
+    }, 1000);
+    setTypingTimeout(timeout);
   };
 
   useEffect(() => {
     if (selectedUser) {
       fetchChat();
     }
-  }, [selectedUser]);
+  }, [selectedUser, fetchChat]);
 
   if (loading) return <Loading />;
 
