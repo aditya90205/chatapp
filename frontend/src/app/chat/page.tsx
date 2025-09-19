@@ -11,6 +11,7 @@ import axios from "axios";
 import ChatHeader from "@/components/ChatHeader";
 import ChatMessages from "@/components/ChatMessages";
 import MessageInput from "@/components/MessageInput";
+import { useSocketContext } from "@/context/SocketContext";
 
 export interface Message {
   _id: string;
@@ -38,6 +39,11 @@ const ChatApp = () => {
     fetchChats,
     setChats,
   } = useAppContext();
+
+  const { onlineUsers } = useSocketContext();
+
+  console.log("Online Users:", onlineUsers);
+  
 
   const [selectedUser, setSelectedUser] = useState<null | string>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -180,6 +186,7 @@ const ChatApp = () => {
         setSelectedUser={setSelectedUser}
         handleLogout={handleLogout}
         createChat={createChat}
+        onlineUsers={onlineUsers}
       />
 
       <div className="flex-1 flex flex-col justify-between p-4 backdrop-blur-xl bg-white/5 border-1 border-white/10">
@@ -187,6 +194,7 @@ const ChatApp = () => {
           user={user}
           setSidebarOpen={setSideBarOpen}
           isTyping={isTyping}
+          onlineUsers={onlineUsers}
         />
         <ChatMessages
           selectedUser={selectedUser}

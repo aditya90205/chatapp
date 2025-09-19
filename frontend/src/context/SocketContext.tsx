@@ -12,10 +12,12 @@ import { useAppContext } from "./AppContext";
 
 interface SocketContextType {
   socket: Socket | null;
+  onlineUsers: string[];
 }
 
 const SocketContext = createContext<SocketContextType>({
   socket: null,
+  onlineUsers: [],
 });
 
 interface ProviderProps {
@@ -25,14 +27,21 @@ interface ProviderProps {
 export const SocketProvider = ({ children }: ProviderProps) => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const { user } = useAppContext();
+  const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
 
   useEffect(() => {
     if (!user?._id) return;
 
-    const newSocket = io("http://localhost:5002");
-    //   console.log("Connecting to socket with user ID:",newSocket);
+    const newSocket = io("http://localhost:5002", {
+      query: { userId: user._id },
+    });
+    console.log("Connecting to socket with user ID:", newSocket);
 
     setSocket(newSocket);
+
+    newSocket.on("getOnlineUser", (users: string[]) => {
+      setOnlineUsers(users);
+    });
 
     return () => {
       newSocket.disconnect();
@@ -40,7 +49,7 @@ export const SocketProvider = ({ children }: ProviderProps) => {
   }, [user?._id]);
 
   return (
-    <SocketContext.Provider value={{ socket }}>
+    <SocketContext.Provider value={{ socket, onlineUsers }}>
       {children}
     </SocketContext.Provider>
   );

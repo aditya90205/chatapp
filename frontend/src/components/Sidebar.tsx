@@ -24,6 +24,7 @@ interface ChatSidebarProps {
   setSelectedUser: (userId: string | null) => void;
   handleLogout: () => void;
   createChat: (user: User) => void;
+  onlineUsers: string[];
 }
 
 const Sidebar = ({
@@ -38,6 +39,7 @@ const Sidebar = ({
   setSelectedUser,
   handleLogout,
   createChat,
+  onlineUsers,
 }: ChatSidebarProps) => {
   // console.log("Users", users);
   // console.log("Logged in Users", loggedInUser);
@@ -122,8 +124,10 @@ const Sidebar = ({
                     <div className="flex items-center gap-3">
                       <div className="relative">
                         <UserCircle className="w-6 h-6 text-gray-300" />
+                        {onlineUsers.includes(user._id) && (
+                          <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 border-2 border-gray-900 rounded-full" />
+                        )}
                       </div>
-                      {/*TODO: Online Symbol to Show */}
                     </div>
 
                     <div className="flex-1 min-w-0">
@@ -131,7 +135,7 @@ const Sidebar = ({
                         {user.name}
                       </span>
                       <div className="text-xs text-gray-400 mt-0.5">
-                        {/*TODO: To show online and offilne text */}
+                        {onlineUsers.includes(user._id) ? "Online" : "Offline"}
                       </div>
                     </div>
                   </button>
@@ -163,15 +167,17 @@ const Sidebar = ({
                     <div className="relative">
                       <div className="w-12 h-12 rounded-full bg-gray-700 flex items-center justify-center">
                         <UserCircle className="w-6 h-6 text-gray-300" />
-                        {/* TODO: online user ka work hai */}
                       </div>
+                      {onlineUsers.includes(chat.user.user._id) && (
+                        <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 border-2 border-gray-900 rounded-full" />
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1">
                         <span
                           className={`font-semibold truncate ${
                             isSelected ? "text-white" : "text-gray-200"
-                           }`}
+                          }`}
                         >
                           {chat.user.user.name}
                         </span>
